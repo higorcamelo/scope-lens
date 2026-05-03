@@ -1,0 +1,47 @@
+# --- OS Metadata ---
+.DS_Store
+Thumbs.db
+*.swp
+
+# --- IDEs / Editors ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# --- Python (Backend) ---
+backend/venv/
+backend/env/
+backend/ENV/
+backend/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/.pytest_cache/
+backend/.env
+
+# --- Node.js / Vue (Frontend) ---
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.env
+frontend/.env.development
+frontend/.env.production
+
+# --- Logs & Databases ---
+*.log
+*.sqlite3
+backend/data/*.log
+
+# --- Coverage / Testing ---
+htmlcov/
+.tox/
+.nox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
