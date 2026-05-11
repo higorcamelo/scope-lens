@@ -11,7 +11,7 @@ class ReplayRequest(BaseModel):
     format_id: str | None = None
     winner: str | None = None
 
-# Endpoint principal do MVP.
+# Endpoint principal
 @router.post("/analyze")
 def analyze(req: ReplayRequest):
     # Chama o motor de análise.

@@ -5,7 +5,7 @@ from app.models import BattleAnalysis
 
 # Palavras-chave que sinalizam eventos decisivos.
 # Hoje está definido, mas ainda não está sendo usado diretamente.
-# Pode ser útil no futuro para expandir a detecção de turning points.
+# Pode ser útil no futuro para expandir a detecção de turning points. Precisamos de uma base mais sólida
 TURNING_KEYWORDS = {
     "trick room",
     "tailwind",
@@ -32,7 +32,7 @@ def detect_turning_points(events):
             turn_scores[ev.turn] += 5
             turn_reasons[ev.turn].append("KO occurred")
 
-        # Trick Room costuma ser ponto de virada.
+        # Trick Room costuma mudar muito o ritmo da batalha.
         if "trick room" in text:
             turn_scores[ev.turn] += 6
             turn_reasons[ev.turn].append("Trick Room changed tempo")
@@ -42,7 +42,7 @@ def detect_turning_points(events):
             turn_scores[ev.turn] += 6
             turn_reasons[ev.turn].append("Tailwind changed tempo")
 
-        # Belly Drum costuma gerar ameaça imediata.
+        # Belly Drum costuma gerar ameaça imediata (Saudades do meu Azumarill).
         if "belly drum" in text:
             turn_scores[ev.turn] += 5
             turn_reasons[ev.turn].append("Belly Drum threat activated")
@@ -84,7 +84,7 @@ def analyze_replay(log_text: str, format_id: str | None = None, winner: str | No
         reverse=True
     )[:3]
 
-    # Resumo textual simples para o MVP.
+    # Resumo simples
     summary = "Replay analisado com foco em eventos decisivos, pressão estratégica e controle de ritmo."
 
     # Monta o objeto final da análise.
@@ -94,6 +94,6 @@ def analyze_replay(log_text: str, format_id: str | None = None, winner: str | No
         mvp=mvp.name if mvp else None,
         turning_points=turning_points,
         main_threats=[t.name for t in threats],
-        win_condition=None,  # ainda não implementado
+        win_condition=None,  # TODO: ainda não implementado
         summary=summary
     )

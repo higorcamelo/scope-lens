@@ -16,5 +16,5 @@ print("Turns parsed:", list(turns.keys()))
 
 linked = link_damage_and_faint_context(events)
 
-for item in linked[:20]:
+for item in linked:
     print(item)
