@@ -40,3 +40,22 @@ class BattleAnalysis:
     main_threats: list[str]
     win_condition: Optional[str]
     summary: str
+    
+@dataclass
+class LinkedBattleEvent:
+    turn: int
+
+    kind: str
+
+    victim: Optional[str] = None
+
+    likely_source: Optional[str] = None
+
+    # move / hazard / residual / ability / item
+    source_kind: Optional[str] = None
+
+    confidence: float = 0.0
+
+    reason: str = ""
+
+    raw: str = ""

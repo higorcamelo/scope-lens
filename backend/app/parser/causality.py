@@ -1,9 +1,8 @@
 import re
 from collections import defaultdict
-from dataclasses import dataclass
 from typing import Optional
 
-from app.models import BattleEvent
+from app.models import BattleEvent, LinkedBattleEvent
 
 # Captura qual lado o Pokémon pertence: p1 ou p2.
 SIDE_RE = re.compile(r"^(p[12])")
@@ -38,18 +37,6 @@ def normalize_name(raw: Optional[str]) -> Optional[str]:
         return None
     return raw.split(":")[-1].strip()
 
-# Evento já com hipótese de causalidade.
-@dataclass
-class LinkedBattleEvent:
-    turn: int
-    kind: str
-    victim: Optional[str]
-    likely_source: Optional[str]
-    source_kind: Optional[str]
-    confidence: float
-    reason: str
-    raw: str
-
 def extract_explicit_cause(raw: str) -> tuple[Optional[str], Optional[str]]:
     # Tenta encontrar causas explícitas dentro da linha do log.
     lower = raw.lower()
@@ -72,18 +59,34 @@ def extract_explicit_cause(raw: str) -> tuple[Optional[str], Optional[str]]:
     if "[from] spikes" in lower:
         return "hazard", "Spikes"
 
+    # Recoil.
+    if "[from] recoil" in lower:
+        return "recoil", "Recoil"
+
     # Dano vindo de move.
-    move_match = re.search(r"\[from\]\s*move:\s*(.+?)(?:\|\[of\]\s*(.+))?$", raw, flags=re.IGNORECASE)
+    move_match = re.search(
+        r"\[from\]\s*move:\s*(.+?)(?:\|\[of\]\s*(.+))?$",
+        raw,
+        flags=re.IGNORECASE
+    )
     if move_match:
         return "move", move_match.group(1).strip()
 
     # Dano vindo de ability.
-    ability_match = re.search(r"\[from\]\s*ability:\s*(.+?)(?:\|\[of\]\s*(.+))?$", raw, flags=re.IGNORECASE)
+    ability_match = re.search(
+        r"\[from\]\s*ability:\s*(.+?)(?:\|\[of\]\s*(.+))?$",
+        raw,
+        flags=re.IGNORECASE
+    )
     if ability_match:
         return "ability", ability_match.group(1).strip()
 
     # Dano vindo de item.
-    item_match = re.search(r"\[from\]\s*item:\s*(.+?)(?:\|\[of\]\s*(.+))?$", raw, flags=re.IGNORECASE)
+    item_match = re.search(
+        r"\[from\]\s*item:\s*(.+?)(?:\|\[of\]\s*(.+))?$",
+        raw,
+        flags=re.IGNORECASE
+    )
     if item_match:
         return "item", item_match.group(1).strip()
 
@@ -102,14 +105,19 @@ def link_damage_and_faint_context(events: list[BattleEvent]) -> list[LinkedBattl
     linked: list[LinkedBattleEvent] = []
 
     # Último move conhecido de cada lado.
-    prev_last_move_by_side: dict[str, BattleEvent | None] = {"p1": None, "p2": None}
+    prev_last_move_by_side: dict[str, BattleEvent | None] = {
+        "p1": None,
+        "p2": None,
+    }
 
     # Memória do último dano em cada vítima.
     last_damage_by_victim: dict[str, LinkedBattleEvent] = {}
 
     for turn, turn_events in grouped.items():
         # Copia do estado anterior para usar como memória do turno atual.
-        last_move_by_side: dict[str, BattleEvent | None] = prev_last_move_by_side.copy()
+        last_move_by_side: dict[str, BattleEvent | None] = (
+            prev_last_move_by_side.copy()
+        )
 
         for ev in turn_events:
             side = get_side(ev.actor)
@@ -130,6 +138,7 @@ def link_damage_and_faint_context(events: list[BattleEvent]) -> list[LinkedBattl
 
             # Se a causa está explícita, usamos ela.
             if explicit_kind is not None:
+
                 if explicit_kind == "residual":
                     linked_event = LinkedBattleEvent(
                         turn=turn,
@@ -141,12 +150,35 @@ def link_damage_and_faint_context(events: list[BattleEvent]) -> list[LinkedBattl
                         reason=f"Explicit residual damage: {explicit_label}",
                         raw=ev.raw,
                     )
+
                     linked.append(linked_event)
+
                     if victim:
                         last_damage_by_victim[victim] = linked_event
+
+                    continue
+
+                if explicit_kind == "recoil":
+                    linked_event = LinkedBattleEvent(
+                        turn=turn,
+                        kind=ev.kind,
+                        victim=victim,
+                        likely_source=victim,
+                        source_kind="recoil",
+                        confidence=1.0,
+                        reason="Self-inflicted recoil damage",
+                        raw=ev.raw,
+                    )
+
+                    linked.append(linked_event)
+
+                    if victim:
+                        last_damage_by_victim[victim] = linked_event
+
                     continue
 
                 likely_source = _extract_of_target(ev.raw)
+
                 linked_event = LinkedBattleEvent(
                     turn=turn,
                     kind=ev.kind,
@@ -157,14 +189,18 @@ def link_damage_and_faint_context(events: list[BattleEvent]) -> list[LinkedBattl
                     reason=f"Explicit cause: {explicit_kind} -> {explicit_label}",
                     raw=ev.raw,
                 )
+
                 linked.append(linked_event)
+
                 if victim:
                     last_damage_by_victim[victim] = linked_event
+
                 continue
 
             # Para faint, tenta usar o último dano no mesmo alvo.
             if ev.kind == "faint" and victim in last_damage_by_victim:
                 prev = last_damage_by_victim[victim]
+
                 linked_event = LinkedBattleEvent(
                     turn=turn,
                     kind=ev.kind,
@@ -175,12 +211,16 @@ def link_damage_and_faint_context(events: list[BattleEvent]) -> list[LinkedBattl
                     reason="Linked from the most recent damage on the same victim",
                     raw=ev.raw,
                 )
+
                 linked.append(linked_event)
                 continue
 
             # Fallback: usa o último move do lado oposto.
             source_side = opposite_side(side)
-            source_event = last_move_by_side.get(source_side) if source_side else None
+            source_event = (
+                last_move_by_side.get(source_side)
+                if source_side else None
+            )
 
             if source_event:
                 linked_event = LinkedBattleEvent(
@@ -193,6 +233,7 @@ def link_damage_and_faint_context(events: list[BattleEvent]) -> list[LinkedBattl
                     reason="Likely caused by the last opposing move",
                     raw=ev.raw,
                 )
+
             else:
                 linked_event = LinkedBattleEvent(
                     turn=turn,
